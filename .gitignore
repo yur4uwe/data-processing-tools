@@ -1,0 +1,7 @@
+instructions/
+*.csv
+*.txt
+__pycache__/
+.zed/
+.venv/
+*.npy
