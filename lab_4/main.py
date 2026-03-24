@@ -16,7 +16,6 @@ NUM_COLS = ["price", "rating"]
 OUTLIER_COL = "price"
 
 
-# --- 1. ГЕНЕРАЦІЯ ДАНИХ З ПУСТИМИ КЛІТИНКАМИ ---
 def generate_data():
     np.random.seed(42)
     n_rows = 100
