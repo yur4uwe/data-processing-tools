@@ -2,5 +2,5 @@
   "pythonVersion": "3.12",
   "typeCheckingMode": "basic",
   "venv": ".venv",
-  "venvPath": ".",
+  "venvPath": "."
 }
