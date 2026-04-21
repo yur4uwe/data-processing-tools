@@ -31,28 +31,24 @@ CREATE TABLE IF NOT EXISTS ops (
 
 # 5 SQL-запитів
 QUERIES = {
-    "q1_large_ops": "SELECT * FROM ops WHERE amount > 4000;",
-    "q2_withdrawals": "SELECT * FROM ops WHERE type = 'Withdrawal';",
-    "q3_join_accounts": """
+    "large_ops": "SELECT * FROM ops WHERE amount > 4000;",
+    "withdrawals": "SELECT * FROM ops WHERE type = 'Withdrawal';",
+    "join_accounts": """
         SELECT o.op_id, a.owner, a.currency, o.amount, o.type
         FROM ops o
         JOIN accounts a ON o.account_id = a.account_id;
     """,
-    "q4_summary_by_currency_type": """
+    "summary_by_currency_type": """
         SELECT a.currency, o.type, SUM(o.amount) as total_amount, COUNT(*) as count_ops
         FROM ops o
         JOIN accounts a ON o.account_id = a.account_id
         GROUP BY a.currency, o.type;
     """,
-    "q5_top_ops": "SELECT * FROM ops ORDER BY amount DESC LIMIT 10;",
+    "top_ops": "SELECT * FROM ops ORDER BY amount DESC LIMIT 10;",
 }
 
 # Які запити зберігати в CSV через Pandas
-EXPORT_QUERIES = ["q3_join_accounts", "q4_summary_by_currency_type"]
-
-
-def connect(db_file):
-    return sqlite3.connect(db_file)
+EXPORT_QUERIES = ["join_accounts", "summary_by_currency_type"]
 
 
 def run_sql(conn, sql, params=None):
@@ -77,7 +73,7 @@ def main():
     if Path(DB_FILE).exists():
         Path(DB_FILE).unlink()
 
-    conn = connect(DB_FILE)
+    conn = sqlite3.connect(DB_FILE)
     run_sql(conn, CREATE_B)
     run_sql(conn, CREATE_A)
 
@@ -89,42 +85,42 @@ def main():
     cntB = table_count(conn, TABLE_B)
 
     # 3) виконання запитів + збереження деяких у csv
-    report_lines = []
-    report_lines.append(f"Лабораторна робота №8 — Звіт (Варіант {VARIANT})")
-    report_lines.append(f"База даних: {DB_FILE}")
-    report_lines.append(f"Таблиця {TABLE_A}: {cntA} рядків")
-    report_lines.append(f"Таблиця {TABLE_B}: {cntB} рядків")
-    report_lines.append("")
+    lines = []
+    lines.append(f"Лабораторна робота №8 — Звіт (Варіант {VARIANT})")
+    lines.append(f"База даних: {DB_FILE}")
+    lines.append(f"Таблиця {TABLE_A}: {cntA} рядків")
+    lines.append(f"Таблиця {TABLE_B}: {cntB} рядків")
+    lines.append("")
 
     for name, sql in QUERIES.items():
         df_res = pd.read_sql_query(sql, conn)
-        report_lines.append(f"== {name} ==")
-        report_lines.append(
+        lines.append(f"== {name} ==")
+        lines.append(
             f"SQL: {sql.strip()[:150]}{'...' if len(sql.strip()) > 150 else ''}"
         )
-        report_lines.append(f"Rows: {len(df_res)}")
-        report_lines.append(df_res.head(5).to_string(index=False))
-        report_lines.append("")
+        lines.append(f"Rows: {len(df_res)}")
+        lines.append(df_res.head(5).to_string(index=False))
+        lines.append("")
 
         if name in EXPORT_QUERIES:
             out_csv = f"{name}_result.csv"
             df_res.to_csv(out_csv, index=False)
 
     # 4) підсумковий звіт
-    report_lines.append("== Висновки ==")
-    report_lines.append(
+    lines.append("== Висновки ==")
+    lines.append(
         "1. Була створена база даних SQLite з двома таблицями: 'accounts' та 'ops'."
     )
-    report_lines.append("2. Дані були успішно завантажені з CSV файлів.")
-    report_lines.append(
+    lines.append("2. Дані були успішно завантажені з CSV файлів.")
+    lines.append(
         "3. Виконано 5 SQL запитів, включаючи фільтрацію, об'єднання та групування."
     )
-    report_lines.append(
+    lines.append(
         "4. Результати аналізу (сумарні суми по валютах та типах операцій) експортовані у CSV."
     )
 
     Path(f"report_variant{VARIANT:02d}.txt").write_text(
-        "\n".join(report_lines), encoding="utf-8"
+        "\n".join(lines), encoding="utf-8"
     )
     conn.close()
 
