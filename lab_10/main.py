@@ -9,16 +9,13 @@ from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.impute import SimpleImputer
-from sklearn.metrics import mean_absolute_error, r2_score
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.linear_model import LinearRegression
 
 VARIANT = 12
 INPUT_FILE = "variant12.csv"
 TASK = "regression"
 TARGET = "engagement"
-
-NUM_COLS = ["followers", "likes_avg"]
-CAT_COLS = ["niche"]
 
 NUM_COLS = ["followers", "posts", "likes_avg"]
 CAT_COLS = ["niche", "country"]
@@ -55,9 +52,10 @@ def build_model():
 
 
 def evaluate(y_true, y_pred):
+    mse = mean_squared_error(y_true, y_pred)
     return {
         "mae": float(mean_absolute_error(y_true, y_pred)),
-        "rmse": float(np.sqrt(mean_absolute_error(y_true, y_pred))),
+        "rmse": float(np.sqrt(mse)),
         "r2": float(r2_score(y_true, y_pred)),
     }
 
@@ -68,14 +66,35 @@ def quality_summary(df: pd.DataFrame) -> dict:
         "rows": int(df.shape[0]),
         "cols": int(df.shape[1]),
         "missing_total": int(miss.sum()),
+        "missing_by_col": {k: int(v) for k, v in miss.to_dict().items()},
         "duplicates": int(df.duplicated().sum()),
     }
 
 
+def generate_data(path: str, n_rows: int = 500):
+    np.random.seed(RANDOM_STATE)
+    data = {
+        "followers": np.random.randint(100, 1000000, n_rows),
+        "posts": np.random.randint(10, 5000, n_rows),
+        "likes_avg": np.random.randint(5, 50000, n_rows),
+        "niche": np.random.choice(["fashion", "tech", "food", "travel", "fitness"], n_rows),
+        "country": np.random.choice(["USA", "UK", "Ukraine", "Germany", "France"], n_rows),
+    }
+    # Synthetic target logic
+    data["engagement"] = (
+        data["followers"] * 0.05 + 
+        data["likes_avg"] * 0.8 + 
+        data["posts"] * 0.1 + 
+        np.random.normal(0, 100, n_rows)
+    )
+    df = pd.DataFrame(data)
+    df.to_csv(path, index=False)
+    print(f"Generated synthetic data: {path}")
+
+
 def main():
     if not Path(INPUT_FILE).exists():
-        print(f"Error: {INPUT_FILE} not found.")
-        return
+        generate_data(INPUT_FILE)
 
     df = pd.read_csv(INPUT_FILE)
 

@@ -26,13 +26,25 @@ def save_raw(obj, path: str):
 
 # ===================== FETCH & NORMALIZE =====================
 def fetch_breweries():
-    # 1. Get list of breweries
-    url = "https://api.openbrewerydb.org/v1/breweries"
-    params = {"per_page": 50}
-    data, final_url = get_json(url, params=params)
+    # 1. Get list of breweries (collection)
+    list_url = "https://api.openbrewerydb.org/v1/breweries"
+    list_params = {"per_page": 50}
+    list_data, final_url = get_json(list_url, params=list_params)
 
-    # 2. Normalize
-    df = pd.json_normalize(data)
+    # 2. Get details for a specific brewery (item detail)
+    # Using the ID from the first item in the list
+    brewery_id = list_data[0]["id"]
+    detail_url = f"https://api.openbrewerydb.org/v1/breweries/{brewery_id}"
+    detail_data, _ = get_json(detail_url)
+
+    # Combine results for raw storage
+    raw_payload = {
+        "breweries_list": list_data,
+        "sample_detail": detail_data
+    }
+
+    # Normalize the list for the DataFrame
+    df = pd.json_normalize(list_data)
 
     # Keep recommended fields
     keep = [
@@ -51,10 +63,11 @@ def fetch_breweries():
     meta = {
         "source": "Open Brewery DB",
         "request_url": final_url,
+        "detail_url": detail_url,
         "rows": len(df),
         "columns": list(df.columns),
     }
-    return data, df, meta
+    return raw_payload, df, meta
 
 
 def minimal_clean(df: pd.DataFrame) -> pd.DataFrame:
@@ -65,11 +78,15 @@ def minimal_clean(df: pd.DataFrame) -> pd.DataFrame:
     for col in cat_cols:
         if col in df2.columns:
             df2[col] = df2[col].fillna("Unknown")
+        else:
+            print(f"Column {col} not found")
 
     # Try to convert coordinates to numeric
     for col in ["latitude", "longitude"]:
         if col in df2.columns:
             df2[col] = pd.to_numeric(df2[col], errors="coerce")
+        else:
+            print(f"Column {col} not found")
 
     return df2
 
@@ -83,7 +100,8 @@ def make_report(meta: dict, df: pd.DataFrame) -> str:
         "",
         "== Джерело та запит ==",
         f"Source: {meta['source']}",
-        f"Request URL: {meta['request_url']}",
+        f"Collection URL: {meta['request_url']}",
+        f"Detail URL sample: {meta['detail_url']}",
         "",
         "== Результат ==",
         f"Rows: {len(df)}",
@@ -96,7 +114,7 @@ def make_report(meta: dict, df: pd.DataFrame) -> str:
         df.isna().sum().sort_values(ascending=False).head(10).to_string(),
         "",
         "== Висновки ==",
-        "1. Дані отримано з Open Brewery DB API. Отримано 50 записів про пивоварні.",
+        "1. Дані отримано з Open Brewery DB API за допомогою двох запитів: отримання списку та деталізації по конкретному ID.",
         "2. JSON структура була пласкою, тому json_normalize спрацював без додаткових розгортань.",
         "3. Проведено очистку: видалено дублікати, заповнено пропуски в категоріальних полях, типи координат приведено до числових.",
     ]
