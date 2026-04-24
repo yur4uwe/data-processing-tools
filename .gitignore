@@ -1,5 +1,6 @@
 *.csv
 *.txt
+!requirements.txt
 __pycache__/
 .zed/
 .venv/
