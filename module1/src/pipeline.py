@@ -1,4 +1,5 @@
 import json
+import os
 import platform
 from typing import cast
 import joblib
@@ -11,7 +12,7 @@ from sklearn.pipeline import Pipeline
 
 from .config import Config
 from .logger import setup_logger
-from .io import ensure_dirs, load_csv, save_csv
+from .io import load_csv, save_csv
 from .preprocess import build_preprocessor
 from .train import build_regression
 from .evaluate import evaluate_regression
@@ -20,27 +21,34 @@ from .evaluate import evaluate_regression
 def run_pipeline(config_path: str):
     cfg = Config.load(config_path)
 
-    seed = cfg.project.seed
-    np.random.seed(cfg.project.seed)
-
     run_id = cfg.project.run_id
     if cfg.project.run_id_mode == "timestamp":
         run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     run_dir = Path(cfg.output.artifacts_dir) / f"run_{run_id}"
-    ensure_dirs(
-        str(run_dir / "models"),
-        str(run_dir / "predictions"),
-        str(run_dir / "metrics"),
-        str(run_dir / "reports"),
-    )
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    run_symlink_path = run_dir.parent / "latest_run"
+    if run_symlink_path.exists() or run_symlink_path.is_symlink():
+        os.unlink(run_symlink_path)
+
+    run_symlink_path.symlink_to(run_dir.absolute())
 
     logger, log_file = setup_logger(cfg.output.logs_dir, run_id)
+    logger.info(f"Project {cfg.project.name}")
     logger.info(f"Run ID: {run_id}")
     logger.info(
         f"Python: {platform.python_version()} | Platform: {platform.platform()}"
     )
+
     logger.info(f"Config: {config_path} | Log: {log_file}")
+
+    seed = cfg.project.seed
+    if seed == 0:
+        logger.info("Seed: random")
+        np.random.seed(cfg.project.seed)
+    else:
+        logger.info(f"Seed: {seed}")
 
     input_csv = cfg.data.input_csv
     target = cfg.data.target
@@ -55,7 +63,7 @@ def run_pipeline(config_path: str):
     df = load_csv(input_csv)
     logger.info(f"Loaded data: {df.shape} from {input_csv}")
 
-    # Variant 12: Memory usage logging
+    # Memory usage logging
     mem_usage = df.memory_usage(deep=True).sum() / (1024**2)
     logger.info(f"DataFrame memory usage: {mem_usage:.2f} MB")
 
@@ -81,6 +89,7 @@ def run_pipeline(config_path: str):
 
     pre = build_preprocessor(num_cols, cat_cols)
     model = build_regression(params)
+    logger.info(f"{cfg.model.task.capitalize()} Model: {cfg.model.name}")
 
     pipe = Pipeline([("preprocess", pre), ("model", model)])
 
@@ -96,11 +105,11 @@ def run_pipeline(config_path: str):
 
     # Save model
     if cfg.output.save_model:
-        model_path = run_dir / "models" / "model.joblib"
+        model_path = run_dir / "model.joblib"
         joblib.dump(pipe, model_path)
 
     # Save metrics
-    metrics_path = run_dir / "metrics" / "metrics.json"
+    metrics_path = run_dir / "metrics.json"
     metrics_path.write_text(
         json.dumps(metrics, indent=2, ensure_ascii=False), encoding="utf-8"
     )
@@ -110,7 +119,7 @@ def run_pipeline(config_path: str):
         pred_df = X_test.copy()
         pred_df["y_true"] = y_test.values
         pred_df["y_pred"] = y_pred
-        save_csv(pred_df, str(run_dir / "predictions" / "predictions.csv"))
+        save_csv(pred_df, str(run_dir / "predictions.csv"))
 
     # Save report
     if cfg.output.save_report:
@@ -124,13 +133,12 @@ def run_pipeline(config_path: str):
         report.append(f"- Metrics: {metrics}")
         report.append(f"- Memory usage: {mem_usage:.2f} MB")
         report.append("")
-        report.append("## Data quality, assumptions, and next steps.")
 
-        report_path = run_dir / "reports" / "report.md"
+        report_path = run_dir / "report.md"
         report_path.write_text("\n".join(report), encoding="utf-8")
 
         # Save config snapshot
-        (run_dir / "reports" / "config_snapshot.yaml").write_text(
+        (run_dir / "config_snapshot.yaml").write_text(
             Path(config_path).read_text(encoding="utf-8"), encoding="utf-8"
         )
 

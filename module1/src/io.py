@@ -1,12 +1,10 @@
 from pathlib import Path
 import pandas as pd
 
-def ensure_dirs(*paths: str):
-    for p in paths:
-        Path(p).mkdir(parents=True, exist_ok=True)
 
 def load_csv(path: str) -> pd.DataFrame:
     return pd.read_csv(path)
+
 
 def save_csv(df: pd.DataFrame, path: str):
     Path(path).parent.mkdir(parents=True, exist_ok=True)
