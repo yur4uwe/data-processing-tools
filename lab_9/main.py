@@ -11,7 +11,6 @@ OUT_REP = f"report_variant{VARIANT:02d}.txt"
 TIMEOUT = 20
 
 
-# ===================== HTTP =====================
 def get_json(url: str, params: dict | None = None):
     r = requests.get(url, params=params, timeout=TIMEOUT)
     r.raise_for_status()
@@ -38,10 +37,7 @@ def fetch_breweries():
     detail_data, _ = get_json(detail_url)
 
     # Combine results for raw storage
-    raw_payload = {
-        "breweries_list": list_data,
-        "sample_detail": detail_data
-    }
+    raw_payload = {"breweries_list": list_data, "sample_detail": detail_data}
 
     # Normalize the list for the DataFrame
     df = pd.json_normalize(list_data)

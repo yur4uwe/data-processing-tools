@@ -21,7 +21,7 @@ NUM_COLS = ["followers", "posts", "likes_avg"]
 CAT_COLS = ["niche", "country"]
 
 TEST_SIZE = 0.2
-RANDOM_STATE = 42
+RANDOM_STATE = 8980670420
 MODEL_NAME = "linreg"
 
 
@@ -77,15 +77,19 @@ def generate_data(path: str, n_rows: int = 500):
         "followers": np.random.randint(100, 1000000, n_rows),
         "posts": np.random.randint(10, 5000, n_rows),
         "likes_avg": np.random.randint(5, 50000, n_rows),
-        "niche": np.random.choice(["fashion", "tech", "food", "travel", "fitness"], n_rows),
-        "country": np.random.choice(["USA", "UK", "Ukraine", "Germany", "France"], n_rows),
+        "niche": np.random.choice(
+            ["fashion", "tech", "food", "travel", "fitness"], n_rows
+        ),
+        "country": np.random.choice(
+            ["USA", "UK", "Ukraine", "Germany", "France"], n_rows
+        ),
     }
     # Synthetic target logic
     data["engagement"] = (
-        data["followers"] * 0.05 + 
-        data["likes_avg"] * 0.8 + 
-        data["posts"] * 0.1 + 
-        np.random.normal(0, 100, n_rows)
+        data["followers"] * 0.05
+        + data["likes_avg"] * 0.8
+        + data["posts"] * 0.1
+        + np.random.normal(0, 100, n_rows)
     )
     df = pd.DataFrame(data)
     df.to_csv(path, index=False)
